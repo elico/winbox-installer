@@ -25,7 +25,7 @@ build-c: image-c
 		-v "$$(pwd)/src:/build" \
 		$(IMG_C) \
 		x86_64-w64-mingw32-gcc -O2 -mconsole -s \
-		-o /build/connect-to-mt-64.exe \
+		-o /build/connect-to-mt-64-c.exe \
 		/build/connect-to-mt.c -lshlwapi
 
 image-go:
@@ -34,14 +34,9 @@ image-go:
 # Compile Go binary using Docker
 build-go: image-go
 	docker run --rm \
-		-e CGO_ENABLED=0 \
-		-e GOOS=windows \
-		-e GOARCH=amd64 \
 		-v "$$(pwd)/src:/build" \
 		$(IMG_GO) \
-		go build -ldflags="-s -w" \
-		-o /build/connect-to-mt-64.exe \
-		/build/connect-to-mt.go
+		sh -c "cd /build && sh build-go.sh"
 
 # Build NSIS Docker image
 image-nsis:
