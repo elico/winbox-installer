@@ -49,8 +49,8 @@ nsis: image-nsis
 		-v "$$(pwd):/build" \
 		-w /build/src \
 		$(IMG_NSIS) \
-		-DOutFile="/build/$(OUTPUT_DIR)/$(INSTALLER_NAME)" \
 		installer.nsi
+	mv -vf src/$(INSTALLER_NAME) $(OUTPUT_DIR)/$(INSTALLER_NAME)
 
 clean:
 	rm -rf $(OUTPUT_DIR) src/connect-to-mt-64.exe

@@ -68,8 +68,8 @@ Section "Install" SecInstall
 
     SetOutPath "$INSTDIR"
 
-    ; Primary executables and helper scripts from src/
-    File "connect-to-mt-64.exe"
+    ; Install connect-to-mt-64-go.exe as connect-to-mt-64.exe
+    File /oname=connect-to-mt-64.exe "connect-to-mt-64-go.exe"
     File "WinBox.exe"
     File "connect-to-mt.ps1"
 
@@ -77,21 +77,21 @@ Section "Install" SecInstall
     SetOutPath "$INSTDIR\assets\img"
     File "assets\img\winbox.png"
 
-    ; Reset working directory to base install directory
+    ; Reset output path to root installation directory
     SetOutPath "$INSTDIR"
 
     ; Create uninstaller
     WriteUninstaller "$INSTDIR\uninstall.exe"
 
-    ; URI Protocol Registration (winbox://)
+    ; --- 1. URI Protocol Registration (winbox://) ---
     WriteRegStr HKLM "Software\Classes\winbox" "" "URL:MikroTik Protocol"
     WriteRegStr HKLM "Software\Classes\winbox" "URL Protocol" ""
     WriteRegStr HKLM "Software\Classes\winbox\shell\open\command" "" '"$INSTDIR\connect-to-mt-64.exe" "-url" "%1"'
 
-    ; Add installation folder to System PATH
+    ; --- 2. Add Installation Directory to System PATH ---
     !insertmacro AddToPath "$INSTDIR"
 
-    ; Register in Windows "Installed apps" / "Add or Remove Programs"
+    ; --- 3. Windows Add/Remove Programs Registration ---
     WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\MikroTikWinboxTools" "DisplayName" "MikroTik URL Handler & Winbox Tools"
     WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\MikroTikWinboxTools" "UninstallString" '"$INSTDIR\uninstall.exe"'
     WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\MikroTikWinboxTools" "InstallLocation" "$INSTDIR"
