@@ -93,6 +93,7 @@ catch { Show-Error $_.Exception.Message }
 $candidates = @(
     (Join-Path $PSScriptRoot 'WinBox.exe'),
     (Join-Path $PSScriptRoot 'winbox64.exe'),
+    "$env:ProgramFiles\winbox\WinBox.exe",
     "$env:ProgramFiles\winbox\winbox64.exe"
 )
 $winbox = $candidates | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1

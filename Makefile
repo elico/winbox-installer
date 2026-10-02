@@ -24,9 +24,10 @@ build-c: image-c
 	docker run --rm \
 		-v "$$(pwd)/src:/build" \
 		$(IMG_C) \
-		x86_64-w64-mingw32-gcc -O2 -mconsole -s \
+		x86_64-w64-mingw32-gcc -O2 -s -municode -mwindows \
 		-o /build/connect-to-mt-64-c.exe \
-		/build/connect-to-mt.c -lshlwapi
+		/build/connect-to-mt.c
+
 
 image-go:
 	docker build -f Dockerfile.go -t $(IMG_GO) .
@@ -52,6 +53,8 @@ nsis: image-nsis
 		installer.nsi
 
 build-installer: nsis
+
+installer: nsis
 
 clean:
 	rm -rf $(OUTPUT_DIR) src/connect-to-mt-64.exe

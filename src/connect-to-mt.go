@@ -140,20 +140,27 @@ func unescape(s string) string {
 	return s
 }
 
+// findWinBox looks next to this exe first, then in %ProgramFiles%\winbox.
 func findWinBox() (string, error) {
 	exe, err := os.Executable()
 	if err != nil {
 		return "", fmt.Errorf("Cannot locate own executable: %v", err)
 	}
-	dir := filepath.Dir(exe)
-	candidates := []string{"WinBox.exe", "winbox64.exe"}
-	for _, name := range candidates {
-		p := filepath.Join(dir, name)
-		if st, err := os.Stat(p); err == nil && !st.IsDir() {
-			return p, nil
+	dirs := []string{filepath.Dir(exe)}
+	if pf := os.Getenv("ProgramFiles"); pf != "" {
+		dirs = append(dirs, filepath.Join(pf, "winbox"))
+	}
+	var tried []string
+	for _, dir := range dirs {
+		for _, name := range []string{"WinBox.exe", "winbox64.exe"} {
+			p := filepath.Join(dir, name)
+			if st, err := os.Stat(p); err == nil && !st.IsDir() {
+				return p, nil
+			}
+			tried = append(tried, p)
 		}
 	}
-	return "", fmt.Errorf("WinBox not found. Put %s next to\n%s", strings.Join(candidates, " or "), exe)
+	return "", fmt.Errorf("WinBox not found. Looked for:\n%s", strings.Join(tried, "\n"))
 }
 
 // fail shows an error dialog (there is no console in a -H=windowsgui build) and exits.
