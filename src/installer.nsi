@@ -2,22 +2,33 @@ Unicode True
 !include "MUI2.nsh"
 !include "x64.nsh"
 !include "WinMessages.nsh"
+!include "Sections.nsh"
 
 Name "MikroTik URL Handler"
 
 !ifndef OutFile
-    OutFile "winbox-tools-setup.exe"
+    !define OutFile "..\dist\winbox-tools-setup.exe"
 !endif
+OutFile "${OutFile}"
 
 InstallDir "$PROGRAMFILES64\winbox"
 InstallDirRegKey HKLM "Software\MikroTik\WinboxTools" "InstallDir"
 
 RequestExecutionLevel admin
 
+; -------------------------------------------------------------
+; Setup Types (InstType)
+; -------------------------------------------------------------
+; InstType 1 = Typical (Go engine default)
+; InstType 2 = Custom
+InstType "Typical"
+InstType "Custom"
+
 ; UI Configuration
 !define MUI_ABORTWARNING
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_DIRECTORY
+!insertmacro MUI_PAGE_COMPONENTS       ; Components page with InstType dropdown
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
 
@@ -59,46 +70,45 @@ RequestExecutionLevel admin
 !macroend
 
 ; -------------------------------------------------------------
-; Install Section
+; 1. Core Section (Always Installed - Hidden with hyphen "-")
 ; -------------------------------------------------------------
-Section "Install" SecInstall
+Section "-Core" SecCore
     ${If} ${RunningX64}
         SetRegView 64
     ${EndIf}
 
-    ; Target All Users for shell folders (Start Menu, Desktop, etc.)
     SetShellVarContext all
-
     SetOutPath "$INSTDIR"
 
-    ; Install connect-to-mt-64-go.exe as connect-to-mt-64.exe
-    File /oname=connect-to-mt-64.exe "connect-to-mt-64-go.exe"
+    ; Base utilities
     File "WinBox.exe"
     File "connect-to-mt.ps1"
 
-    ; Asset files
+    ; Install BOTH binaries unconditionally so both reside on disk
+    File "connect-to-mt-64-go.exe"
+    File "connect-to-mt-64-c.exe"
+
+    ; Assets
     SetOutPath "$INSTDIR\assets\img"
     File "assets\img\winbox.png"
-
     SetOutPath "$INSTDIR"
 
-    ; Create uninstaller
     WriteUninstaller "$INSTDIR\uninstall.exe"
 
-    ; --- 1. URI Protocol Registration (winbox://) ---
+    ; Register winbox:// Protocol Handler in Registry
     WriteRegStr HKLM "Software\Classes\winbox" "" "URL:MikroTik Protocol"
     WriteRegStr HKLM "Software\Classes\winbox" "URL Protocol" ""
     WriteRegStr HKLM "Software\Classes\winbox\shell\open\command" "" '"$INSTDIR\connect-to-mt-64.exe" "-url" "%1"'
 
-    ; --- 2. Add Installation Directory to System PATH ---
+    ; Add to System PATH
     !insertmacro AddToPath "$INSTDIR"
 
-    ; --- 3. Start Menu Shortcuts (Windows Search Indexing) ---
+    ; Start Menu Shortcuts
     CreateDirectory "$SMPROGRAMS\MikroTik"
     CreateShortcut "$SMPROGRAMS\MikroTik\WinBox.lnk" "$INSTDIR\WinBox.exe" "" "$INSTDIR\WinBox.exe" 0 "" "" "Launch MikroTik WinBox"
     CreateShortcut "$SMPROGRAMS\MikroTik\Uninstall.lnk" "$INSTDIR\uninstall.exe"
 
-    ; --- 4. Windows Add/Remove Programs Registration ---
+    ; Add/Remove Programs
     WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\MikroTikWinboxTools" "DisplayName" "MikroTik URL Handler & Winbox Tools"
     WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\MikroTikWinboxTools" "UninstallString" '"$INSTDIR\uninstall.exe"'
     WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\MikroTikWinboxTools" "DisplayIcon" '"$INSTDIR\WinBox.exe",0'
@@ -107,6 +117,46 @@ Section "Install" SecInstall
     WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\MikroTikWinboxTools" "NoModify" 1
     WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\MikroTikWinboxTools" "NoRepair" 1
 SectionEnd
+
+; -------------------------------------------------------------
+; 2. Choice of Active Engine (Configures connect-to-mt-64.exe)
+; -------------------------------------------------------------
+SectionGroup /e "Default URL Handler Engine" SecEngineGroup
+
+    ; SectionIn 1 2 -> Enabled in both Typical (1) and Custom (2)
+    Section "Go Engine (Default)" SecEngineGo
+        SectionIn 1 2
+        SetOutPath "$INSTDIR"
+        CopyFiles /SILENT "$INSTDIR\connect-to-mt-64-go.exe" "$INSTDIR\connect-to-mt-64.exe"
+        WriteRegStr HKLM "Software\MikroTik\WinboxTools" "ActiveEngine" "Go"
+    SectionEnd
+
+    ; SectionIn 2 -> Only available under Custom (2)
+    Section "C Engine (Lightweight)" SecEngineC
+        SectionIn 2
+        SetOutPath "$INSTDIR"
+        CopyFiles /SILENT "$INSTDIR\connect-to-mt-64-c.exe" "$INSTDIR\connect-to-mt-64.exe"
+        WriteRegStr HKLM "Software\MikroTik\WinboxTools" "ActiveEngine" "C"
+    SectionEnd
+
+SectionGroupEnd
+
+; Enforce radio button exclusivity between Go and C engines in Custom mode
+Function .onSelChange
+    !insertmacro StartRadioButtons $1
+        !insertmacro RadioButton ${SecEngineGo}
+        !insertmacro RadioButton ${SecEngineC}
+    !insertmacro EndRadioButtons
+FunctionEnd
+
+; Component Descriptions
+LangString DESC_SecEngineGo ${LANG_ENGLISH} "Sets the Go implementation as the active connect-to-mt-64.exe."
+LangString DESC_SecEngineC  ${LANG_ENGLISH} "Sets the lightweight C implementation as the active connect-to-mt-64.exe."
+
+!insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
+    !insertmacro MUI_DESCRIPTION_TEXT ${SecEngineGo} $(DESC_SecEngineGo)
+    !insertmacro MUI_DESCRIPTION_TEXT ${SecEngineC}  $(DESC_SecEngineC)
+!insertmacro MUI_FUNCTION_DESCRIPTION_END
 
 ; -------------------------------------------------------------
 ; Uninstall Section
@@ -118,21 +168,20 @@ Section "Uninstall"
 
     SetShellVarContext all
 
-    ; Remove Start Menu Shortcuts
     Delete "$SMPROGRAMS\MikroTik\WinBox.lnk"
     Delete "$SMPROGRAMS\MikroTik\Uninstall.lnk"
     RMDir "$SMPROGRAMS\MikroTik"
 
-    ; Clean Registry
     DeleteRegKey HKLM "Software\Classes\winbox"
     DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\MikroTikWinboxTools"
     DeleteRegKey HKLM "Software\MikroTik\WinboxTools"
 
-    ; Remove from System PATH
     !insertmacro RemoveFromPath "$INSTDIR"
 
-    ; Clean Files and Directories
+    ; Delete active executable and both stored variants
     Delete "$INSTDIR\connect-to-mt-64.exe"
+    Delete "$INSTDIR\connect-to-mt-64-go.exe"
+    Delete "$INSTDIR\connect-to-mt-64-c.exe"
     Delete "$INSTDIR\WinBox.exe"
     Delete "$INSTDIR\connect-to-mt.ps1"
     Delete "$INSTDIR\assets\img\winbox.png"
@@ -143,9 +192,8 @@ Section "Uninstall"
     RMDir "$INSTDIR"
 SectionEnd
 
-
 ; -------------------------------------------------------------
-; Installer Functions
+; Helper Functions
 ; -------------------------------------------------------------
 Function StrContains
     Exch $1 ; needle
@@ -174,9 +222,6 @@ Function StrContains
         Exch $1
 FunctionEnd
 
-; -------------------------------------------------------------
-; Uninstaller Functions (Prefix with un.)
-; -------------------------------------------------------------
 Function un.StrReplace
     Exch $R0 ; needle
     Exch
