@@ -66,6 +66,9 @@ Section "Install" SecInstall
         SetRegView 64
     ${EndIf}
 
+    ; Target All Users for shell folders (Start Menu, Desktop, etc.)
+    SetShellVarContext all
+
     SetOutPath "$INSTDIR"
 
     ; Install connect-to-mt-64-go.exe as connect-to-mt-64.exe
@@ -77,7 +80,6 @@ Section "Install" SecInstall
     SetOutPath "$INSTDIR\assets\img"
     File "assets\img\winbox.png"
 
-    ; Reset output path to root installation directory
     SetOutPath "$INSTDIR"
 
     ; Create uninstaller
@@ -91,9 +93,15 @@ Section "Install" SecInstall
     ; --- 2. Add Installation Directory to System PATH ---
     !insertmacro AddToPath "$INSTDIR"
 
-    ; --- 3. Windows Add/Remove Programs Registration ---
+    ; --- 3. Start Menu Shortcuts (Windows Search Indexing) ---
+    CreateDirectory "$SMPROGRAMS\MikroTik"
+    CreateShortcut "$SMPROGRAMS\MikroTik\WinBox.lnk" "$INSTDIR\WinBox.exe" "" "$INSTDIR\WinBox.exe" 0 "" "" "Launch MikroTik WinBox"
+    CreateShortcut "$SMPROGRAMS\MikroTik\Uninstall.lnk" "$INSTDIR\uninstall.exe"
+
+    ; --- 4. Windows Add/Remove Programs Registration ---
     WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\MikroTikWinboxTools" "DisplayName" "MikroTik URL Handler & Winbox Tools"
     WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\MikroTikWinboxTools" "UninstallString" '"$INSTDIR\uninstall.exe"'
+    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\MikroTikWinboxTools" "DisplayIcon" '"$INSTDIR\WinBox.exe",0'
     WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\MikroTikWinboxTools" "InstallLocation" "$INSTDIR"
     WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\MikroTikWinboxTools" "Publisher" "MikroTik Tools"
     WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\MikroTikWinboxTools" "NoModify" 1
@@ -107,6 +115,13 @@ Section "Uninstall"
     ${If} ${RunningX64}
         SetRegView 64
     ${EndIf}
+
+    SetShellVarContext all
+
+    ; Remove Start Menu Shortcuts
+    Delete "$SMPROGRAMS\MikroTik\WinBox.lnk"
+    Delete "$SMPROGRAMS\MikroTik\Uninstall.lnk"
+    RMDir "$SMPROGRAMS\MikroTik"
 
     ; Clean Registry
     DeleteRegKey HKLM "Software\Classes\winbox"
@@ -127,6 +142,7 @@ Section "Uninstall"
     RMDir "$INSTDIR\assets"
     RMDir "$INSTDIR"
 SectionEnd
+
 
 ; -------------------------------------------------------------
 ; Installer Functions
